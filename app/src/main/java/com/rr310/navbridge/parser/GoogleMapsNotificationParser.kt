@@ -19,7 +19,11 @@ data class ParsedNavigation(
 
 object GoogleMapsNotificationParser {
 
-    private val DISTANCE_PATTERN = Pattern.compile("(\\d+(?:[.,]\\d+)?)\\s*(m|km|mi|ft)", Pattern.CASE_INSENSITIVE)
+    // Added negative lookahead (?!in) and word boundary so "44 min" NEVER matches as "44 m"
+    private val DISTANCE_PATTERN = Pattern.compile(
+        "(\\d+(?:[.,]\\d+)?)\\s*(km|mi|ft|m(?!in))\\b",
+        Pattern.CASE_INSENSITIVE
+    )
 
     @Volatile
     private var lastDetectedPictogram: Pictogram = Pictogram.STRAIGHT
@@ -42,7 +46,9 @@ object GoogleMapsNotificationParser {
         val fullContent = "$title $text $subText $bigText $titleBig $tickerText".lowercase(Locale.ROOT)
 
         // Detect arrival
-        if (fullContent.contains("arrived") || fullContent.contains("destination") || fullContent.contains("you have reached") || fullContent.contains("you've arrived")) {
+        if (fullContent.contains("arrived") || fullContent.contains("destination") ||
+            fullContent.contains("you have reached") || fullContent.contains("you've arrived")
+        ) {
             lastDetectedPictogram = Pictogram.ARRIVED
             return ParsedNavigation(
                 distanceToManeuverMeters = 0,
@@ -55,36 +61,32 @@ object GoogleMapsNotificationParser {
             )
         }
 
-        // Parse distance to upcoming maneuver across all fields
+        // Only look for step distance in maneuver fields (title / text / bigText) — NOT subText (which holds total trip distance)
         val distToManeuver = parseDistanceMeters(title).takeIf { it > 0 }
             ?: parseDistanceMeters(text).takeIf { it > 0 }
             ?: parseDistanceMeters(bigText).takeIf { it > 0 }
-            ?: parseDistanceMeters(tickerText).takeIf { it > 0 }
-            ?: parseDistanceMeters(subText).takeIf { it > 0 }
             ?: 0
 
-        // Parse ETA and total remaining distance
+        // Total remaining trip distance comes from subText (e.g., "44 min • 26 km • 4:18 pm")
         val remainingDistance = parseDistanceMeters(subText).takeIf { it > 0 }
             ?: parseDistanceMeters(bigText).takeIf { it > 0 }
-            ?: (distToManeuver * 2)
+            ?: distToManeuver
 
+        // Total remaining trip time in seconds
         val remainingSeconds = parseEtaSeconds(subText).takeIf { it > 0 }
             ?: parseEtaSeconds(bigText).takeIf { it > 0 }
-            ?: 600
+            ?: parseEtaSeconds(text).takeIf { it > 0 }
+            ?: 0
 
-        // Detect pictogram or retain last detected pictogram for ongoing maneuver distance updates
         val detected = detectPictogram(fullContent)
         val picto = if (detected != Pictogram.OFF) {
             lastDetectedPictogram = detected
             detected
         } else {
-            // Keep active maneuver pictogram during distance updates (e.g. 500m -> 400m -> 300m)
             if (lastDetectedPictogram != Pictogram.OFF) lastDetectedPictogram else Pictogram.STRAIGHT
         }
 
-        // Extract clean street name (max 14 chars for cluster)
         val cleanStreet = extractStreetName(title, text, bigText)
-
         val isRerouting = fullContent.contains("rerouting")
 
         return ParsedNavigation(
@@ -132,13 +134,11 @@ object GoogleMapsNotificationParser {
     private fun parseEtaSeconds(input: String): Int {
         if (input.isEmpty()) return 0
         var totalSec = 0
-        if (input.contains("hr") || input.contains("hour")) {
-            val hrMatcher = Pattern.compile("(\\d+)\\s*(?:hr|hour|hours)", Pattern.CASE_INSENSITIVE).matcher(input)
-            if (hrMatcher.find()) {
-                totalSec += (hrMatcher.group(1)?.toIntOrNull() ?: 0) * 3600
-            }
+        val hrMatcher = Pattern.compile("(\\d+)\\s*(?:hr|hrs|hour|hours)\\b", Pattern.CASE_INSENSITIVE).matcher(input)
+        if (hrMatcher.find()) {
+            totalSec += (hrMatcher.group(1)?.toIntOrNull() ?: 0) * 3600
         }
-        val minMatcher = Pattern.compile("(\\d+)\\s*(?:min|mins|minute|minutes)", Pattern.CASE_INSENSITIVE).matcher(input)
+        val minMatcher = Pattern.compile("(\\d+)\\s*(?:min|mins|minute|minutes)\\b", Pattern.CASE_INSENSITIVE).matcher(input)
         if (minMatcher.find()) {
             totalSec += (minMatcher.group(1)?.toIntOrNull() ?: 0) * 60
         }
