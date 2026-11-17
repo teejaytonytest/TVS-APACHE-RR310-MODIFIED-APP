@@ -83,9 +83,34 @@ class NavBridgeService : Service() {
         val notifManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notifManager.notify(NOTIFICATION_ID, notification)
 
-        // Send immediately, then ensure the periodic heartbeat loop is running
         sendCurrentNavPacket(nav)
         startHeartbeatLoop()
+    }
+
+    /**
+     * Sends a raw pictogram byte code (0..255) for 2024 RR 310 TFT arrow mapping.
+     */
+    fun sendRawPictogramTest(rawCode: Byte, xorPictogramByte: Boolean = false) {
+        stopHeartbeat()
+        _currentNav.value = null
+        if (bleManager.connectionState.value == BleManager.ConnectionState.CONNECTED) {
+            serviceScope.launch {
+                val effectiveCode = if (xorPictogramByte) {
+                    (rawCode.toInt() xor TvsProtocol.XOR_KEY.toInt()).toByte()
+                } else {
+                    rawCode
+                }
+                val navPacket = TvsProtocol.buildNavigationPacketRawCode(
+                    distanceMeters = 50,
+                    remainingDistanceMeters = 1000,
+                    remainingTimeSeconds = 120,
+                    pictogramCode = effectiveCode,
+                    isRerouting = false
+                )
+                bleManager.sendPacket(navPacket)
+                _packetsSent.value += 1
+            }
+        }
     }
 
     fun clearNavigation() {
@@ -121,7 +146,7 @@ class NavBridgeService : Service() {
 
         heartbeatJob = serviceScope.launch {
             while (isActive) {
-                delay(1500) // Heartbeat interval: re-transmit every 1.5s to prevent TFT overlay timeout
+                delay(1500)
                 val nav = _currentNav.value
                 if (nav != null && bleManager.connectionState.value == BleManager.ConnectionState.CONNECTED) {
                     sendCurrentNavPacket(nav)
@@ -148,7 +173,7 @@ class NavBridgeService : Service() {
                 bleManager.sendPacket(navPacket)
                 _packetsSent.value += 1
 
-                delay(50) // Small GATT write spacing
+                delay(50)
 
                 if (nav.streetName.isNotEmpty()) {
                     val textPacket = TvsProtocol.buildStreetNamePacket(nav.streetName)
