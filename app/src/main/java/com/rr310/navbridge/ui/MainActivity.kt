@@ -260,8 +260,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener, LocationL
         btnFindFuel.setOnClickListener { findNearbyFuel() }
 
         // Test RIGHT button sends XOR-encrypted pictogram code to check if 2024 firmware expects XOR on byte 9
-        btnTestTurnRight.text = "TEST XOR CODE ($probeCode)"
+        btnTestTurnRight.text = "TEST XOR CODE: $probeCode"
         btnTestTurnRight.setOnClickListener {
+            probeCode = (probeCode + 1) % 20
+            btnTestTurnRight.text = "TEST XOR CODE: $probeCode"
             navService?.sendRawPictogramTest(probeCode.toByte(), xorPictogramByte = true)
             Toast.makeText(this, "Sent XOR Pictogram Code: $probeCode", Toast.LENGTH_SHORT).show()
         }
