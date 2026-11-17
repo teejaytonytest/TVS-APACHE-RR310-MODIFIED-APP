@@ -20,21 +20,21 @@ object TvsProtocol {
     const val XOR_KEY: Byte = 0xEA.toByte()
 
     enum class Pictogram(var code: Byte) {
-        OFF(0),
-        STRAIGHT(1),
-        SLIGHT_RIGHT(2),
+        TURN_LEFT(0),
+        SHARP_LEFT(1),
+        SLIGHT_LEFT(2),
         TURN_RIGHT(3),
         SHARP_RIGHT(4),
-        SLIGHT_LEFT(5),
-        TURN_LEFT(6),
-        SHARP_LEFT(7),
-        U_TURN(8),
-        U_TURN_LEFT(9),
-        ROUNDABOUT(10),
-        ROUNDABOUT_LEFT(11),
-        KEEP_RIGHT(12),
-        KEEP_LEFT(13),
-        ARRIVED(14)
+        SLIGHT_RIGHT(5),
+        U_TURN(6),
+        U_TURN_LEFT(6),
+        STRAIGHT(7),
+        ROUNDABOUT(8),
+        ROUNDABOUT_LEFT(8),
+        KEEP_RIGHT(5),
+        KEEP_LEFT(2),
+        ARRIVED(7), // Defaults to straight/pin when you arrive
+        OFF(9)      // Uses the blank slot to clear the arrow
     }
 
     fun buildNavigationPacket(
