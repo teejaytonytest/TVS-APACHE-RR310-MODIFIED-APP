@@ -43,9 +43,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener, LocationL
     private var tts: TextToSpeech? = null
     private var lastSpokenManeuver: String = ""
 
-    // Pictogram probe counter for 2024 RR 310 mapping
-    private var probeCode: Int = 0
-
     // GPS & Telemetry
     private lateinit var locationManager: LocationManager
     private var currentSpeedKmH: Int = 0
@@ -259,32 +256,26 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener, LocationL
         btnShareLocation.setOnClickListener { shareCurrentLocation() }
         btnFindFuel.setOnClickListener { findNearbyFuel() }
 
-        // Test RIGHT button sends XOR-encrypted pictogram code to check if 2024 firmware expects XOR on byte 9
-        btnTestTurnRight.text = "TEST XOR CODE: $probeCode"
+        // Test Suite Buttons Restored
+        btnTestTurnRight.text = "RIGHT (300M)"
         btnTestTurnRight.setOnClickListener {
-            probeCode = (probeCode + 1) % 20
-            btnTestTurnRight.text = "TEST XOR CODE: $probeCode"
-            navService?.sendRawPictogramTest(probeCode.toByte(), xorPictogramByte = true)
-            Toast.makeText(this, "Sent XOR Pictogram Code: $probeCode", Toast.LENGTH_SHORT).show()
+            simulateNavigation(Pictogram.TURN_RIGHT, 300, "MG Road", 600, 4500)
         }
 
+        btnTestTurnLeft.text = "LEFT (150M)"
         btnTestTurnLeft.setOnClickListener {
             simulateNavigation(Pictogram.TURN_LEFT, 150, "Brigade Road", 300, 2200)
         }
 
-        // U-TURN button steps through raw pictogram codes 0..25 so you can map every arrow on your 2024 cluster
-        btnTestUturn.text = "STEP CODE: $probeCode (TAP TO CYCLE)"
+        btnTestUturn.text = "U-TURN (50M)"
         btnTestUturn.setOnClickListener {
-            probeCode = (probeCode + 1) % 26
-            btnTestUturn.text = "STEP CODE: $probeCode (TAP TO CYCLE)"
-            btnTestTurnRight.text = "TEST XOR CODE ($probeCode)"
-            navService?.sendRawPictogramTest(probeCode.toByte(), xorPictogramByte = false)
-            Toast.makeText(this, "Sent Raw Pictogram Code: $probeCode", Toast.LENGTH_SHORT).show()
+            simulateNavigation(Pictogram.U_TURN, 50, "U-Turn", 120, 1000)
         }
 
         btnTestArrived.setOnClickListener {
             simulateNavigation(Pictogram.ARRIVED, 0, "Arrived", 0, 0)
         }
+        
         btnClearOverlay.setOnClickListener {
             navService?.clearNavigation()
             Toast.makeText(this, "Cleared cluster display", Toast.LENGTH_SHORT).show()
