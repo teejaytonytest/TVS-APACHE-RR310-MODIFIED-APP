@@ -92,7 +92,7 @@ object TvsProtocol {
         }
 
         // Unencrypted pictogram code and metadata flags (bytes 9..17)
-        raw[9] = pictogramCode
+        raw[9] = (pictogramCode.toInt() xor XOR_KEY.toInt()).toByte()
         raw[10] = 1.toByte()
         raw[11] = if (isRerouting) 1.toByte() else 0.toByte()
         raw[12] = if (isMetric) 0.toByte() else 1.toByte()
